@@ -1,1 +1,1 @@
-torch==2.x.x --index-url https://download.pytorch.org/whl/cpu
+torch>=2.1,<3.0 --index-url https://download.pytorch.org/whl/cpu
