@@ -27,3 +27,9 @@ logs/
 # OS
 .DS_Store
 
+data/
+checkpoints/
+venv/
+__pycache__/
+*.pyc
+*.pth
