@@ -1,34 +1,58 @@
-from .packet_protocol import PacketProtocol
+from src.network.network_event import NetworkEvent
+from src.network.types import SessionKey
+from src.features.feature_extractor import FeatureExtractor
 from .session_state import SessionState
-from typing import Any, Hashable, Tuple
+from .session_event import SessionEvent
 
 
 class SessionManager:
     def __init__(self, timeout: float = 60, max_len: int = 50) -> None:
-        self.sessions: dict[Hashable, SessionState] = {}
+        self.sessions: dict[SessionKey, SessionState] = {}
         self.timeout: float = timeout
         self.max_len: int = max_len
 
-    def _make_key(self, packet: PacketProtocol) -> Tuple:
-        endpoint_a = (packet.src, packet.sport)
-        endpoint_b = (packet.dst, packet.dport)
+        self.feature_extractor: FeatureExtractor = FeatureExtractor()
 
-        ordered = tuple(sorted([endpoint_a, endpoint_b]))
-        return ordered + (packet.prot,)
-
-    def process_packet(
+    def process_event(
         self, 
-        packet: PacketProtocol, 
-        feature_vector: list[float], 
-        packet_size: int
+        event: NetworkEvent 
     ) -> list[list[float]]:
-        key = self._make_key(packet)
 
+        key: SessionKey = event.make_key()
+        
+        is_first = False
         if key not in self.sessions:
             self.sessions[key] = SessionState(max_len=self.max_len)
+            is_first = True
         
         session = self.sessions[key]
-        session.update(feature_vector, packet_size)
+        
+        # направление
+        src = event.source.to_key_part()
+        dst = event.destination.to_key_part()
+        canonical = sorted((src, dst))
+        direction = src == canonical[0]
+        
+        # задержка
+        delay = 0.0
+        if session.last_seen is not None:
+            delay = event.timestamp - session.last_seen 
+        
+        direction_changed = (
+            False if is_first or session.last_direction is None
+            else session.last_direction != direction
+        )
+
+        session_event = SessionEvent(
+            event,
+            is_first,
+            direction_changed,
+            delay
+        )
+
+        feature_vector = self.feature_extractor.extract(session_event)
+
+        session.update(feature_vector, event.size, event.timestamp, direction)
         
         return session.get_sequence()
 
