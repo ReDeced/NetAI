@@ -11,7 +11,10 @@ class ShardWriter:
         self.shard_size = shard_size
         self.windows: list[torch.Tensor] = []
         self.timestamps: list[float] = []
-        self.shard_index = 0
+        
+        existing = sorted(self.output_dir.glob("shard_*.pt"))
+        self.shard_index = len(existing)
+
 
     def add(self, window: torch.Tensor, timestamp: float) -> None:
         self.windows.append(window)
