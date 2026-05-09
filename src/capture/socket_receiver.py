@@ -80,28 +80,33 @@ def run(
     signal.signal(signal.SIGINT,  shutdown)
     signal.signal(signal.SIGTERM, shutdown)
 
-    conn, _ = server.accept()
-    log.info("C++ sniffer connected.")
+    server.listen(1)
 
     while True:
-        raw = recv_exact(conn, MSG_SIZE)
-        if raw is None:
-            log.info("Sniffer disconnected.")
-            break
+        log.info("Waiting for sniffer connection...")
+        conn, _ = server.accept()
+        log.info("C++ sniffer connected.")
 
-        event = parse_msg(raw)
-        result = builder.process(event)
+        while True:
+            raw = recv_exact(conn, MSG_SIZE)
+            if raw is None:
+                log.info("Sniffer disconnected.")
+                break
 
-        if result is not None:
-            window, ts = result
-            writer.add(window, ts)
+            event = parse_msg(raw)
+            result = builder.process(event)
 
-            if builder.total_windows % 5000 == 0:
-                builder.manager.cleanup()
-                log.info(f"Windows: {builder.total_windows}")
+            if result is not None:
+                window, ts = result
+                writer.add(window, ts)
+
+                if builder.total_windows % 5000 == 0:
+                    builder.manager.cleanup()
+                    log.info(f"Windows: {builder.total_windows}")
+
+        conn.close()
 
     writer.flush()
-    conn.close()
     server.close()
 
 

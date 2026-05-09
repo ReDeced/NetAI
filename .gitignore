@@ -27,6 +27,9 @@ logs/
 # OS
 .DS_Store
 
+# Binaries
+build/
+
 data/
 checkpoints/
 venv/
